@@ -595,35 +595,30 @@ fn draw_gizmos(
 
         let mut bevy_draw_data = render::GizmoDrawData::default();
 
-        let (asset, is_new_asset) = if let Some(handle) = draw_data_handles.handles.get(gizmo_uuid)
-        {
-            (draw_data_assets.get_mut(handle).unwrap(), false)
-        } else {
-            (&mut bevy_draw_data, true)
-        };
-
         let viewport = &gizmo.config().viewport;
 
-        asset.0.vertices.clear();
-        asset
-            .0
-            .vertices
-            .extend(draw_data.vertices.into_iter().map(|vert| {
+        let write_draw_data = |asset: &mut render::GizmoDrawData| {
+            asset.0.vertices.clear();
+            asset.0.vertices.extend(draw_data.vertices.into_iter().map(|vert| {
                 [
                     ((vert[0] - viewport.left()) / viewport.width()) * 2.0 - 1.0,
                     ((vert[1] - viewport.top()) / viewport.height()) * 2.0 - 1.0,
                 ]
             }));
+            asset.0.colors = draw_data.colors;
+            asset.0.indices = draw_data.indices;
+        };
 
-        asset.0.colors = draw_data.colors;
-        asset.0.indices = draw_data.indices;
-
-        if is_new_asset {
-            let asset = draw_data_assets.add(bevy_draw_data);
-
+        if let Some(handle) = draw_data_handles.handles.get(gizmo_uuid) {
+            if let Some(mut asset) = draw_data_assets.get_mut(handle) {
+                write_draw_data(&mut asset);
+            }
+        } else {
+            write_draw_data(&mut bevy_draw_data);
+            let handle = draw_data_assets.add(bevy_draw_data);
             draw_data_handles
                 .handles
-                .insert(*gizmo_uuid, asset.clone().into());
+                .insert(*gizmo_uuid, handle.clone().into());
         }
     }
 }
