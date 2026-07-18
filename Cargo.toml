@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "examples/*"]
 
 [workspace.package]
-version = "0.9.0"
+version = "0.9.1"
 rust-version = "1.92.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
@@ -12,23 +12,23 @@ repository = "https://github.com/urholaukkarinen/transform-gizmo"
 authors = ["Urho Laukkarinen <urho.laukkarinen@gmail.com>"]
 
 [workspace.dependencies]
-transform-gizmo = { version = "0.9.0", path = "crates/transform-gizmo" }
-transform-gizmo-egui = { version = "0.9.0", path = "crates/transform-gizmo-egui" }
-transform-gizmo-bevy = { version = "0.9.0", path = "crates/transform-gizmo-bevy" }
+transform-gizmo = { version = "0.9.1", path = "crates/transform-gizmo" }
+transform-gizmo-egui = { version = "0.9.1", path = "crates/transform-gizmo-egui" }
+transform-gizmo-bevy = { version = "0.9.1", path = "crates/transform-gizmo-bevy" }
 
-egui = "0.34"
-eframe = "0.34"
-emath = "0.34"
-epaint = "0.34"
-ecolor = "0.34"
-glam = { version = "0.32", features = ["mint"] }
-mint = "0.5"
-enum_dispatch = "0.3"
-ahash = "0.8"
-enumset = "1.1"
-bytemuck = "1.23"
-uuid = "1.17"
-bevy = "0.19"
+egui = "~0.35"
+eframe = "~0.35"
+emath = "~0.35"
+epaint = "~0.35"
+ecolor = "~0.35"
+glam = { version = "~0.32", features = ["mint"] }
+mint = "~0.5"
+enum_dispatch = "~0.3"
+ahash = "~0.8"
+enumset = "~1.1"
+bytemuck = "~1.25"
+uuid = "~1.23"
+bevy = "~0.19"
 
 bevy_app = { version = "0.19", default-features = false }
 bevy_core_pipeline = { version = "0.19", default-features = false }
