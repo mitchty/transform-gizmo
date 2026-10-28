@@ -9,7 +9,7 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, TransformGizmoPlugin))
         .add_systems(Startup, setup)
-        .add_observer(|trigger: On<Pointer<Over>>| {
+        .add_observer(|trigger: On<PointerOver>| {
             info!("Moved over: {}", trigger.entity);
         })
         .run();

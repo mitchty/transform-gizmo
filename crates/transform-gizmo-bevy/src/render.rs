@@ -13,7 +13,6 @@ use bevy_pbr::{
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{Reflect, TypePath};
-use bevy_render::extract_component::ExtractComponent;
 use bevy_render::prelude::*;
 use bevy_render::render_asset::{
     PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets, prepare_assets,
@@ -93,7 +92,6 @@ pub(crate) struct DrawDataHandles {
     Reflect,
     PartialEq,
     Eq,
-    ExtractComponent,
     Hash,
 )]
 #[reflect(Component)]
@@ -120,7 +118,7 @@ fn extract_gizmo_data(mut commands: Commands, handles: Extract<Res<DrawDataHandl
     let handle_refs = handles.handles.values().cloned().collect::<HashSet<_>>();
 
     for handle in handle_refs {
-        commands.spawn((handle, TemporaryRenderEntity));
+        commands.spawn((handle, TemporaryRenderEntity::default()));
     }
 }
 
@@ -260,6 +258,7 @@ impl SpecializedRenderPipeline for TransformGizmoPipeline {
                 shader: GIZMO_SHADER_HANDLE,
                 entry_point: Some("vertex".into()),
                 shader_defs: shader_defs.clone(),
+                constants: vec![],
                 buffers: vec![
                     VertexBufferLayout {
                         array_stride: VertexFormat::Float32x2.size(),
@@ -284,6 +283,7 @@ impl SpecializedRenderPipeline for TransformGizmoPipeline {
             fragment: Some(FragmentState {
                 shader: GIZMO_SHADER_HANDLE,
                 shader_defs,
+                constants: vec![],
                 entry_point: Some("fragment".into()),
                 targets: vec![Some(ColorTargetState {
                     format,
