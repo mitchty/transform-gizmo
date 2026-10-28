@@ -29,12 +29,14 @@ use bevy_render::render_resource::{
     VertexFormat, VertexState, VertexStepMode,
 };
 use bevy_render::renderer::RenderDevice;
-use bevy_render::sync_world::TemporaryRenderEntity;
+use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy_render::view::ExtractedView;
 use bevy_render::{Extract, Render, RenderApp, RenderStartup, RenderSystems};
 use bevy_shader::Shader;
 use bytemuck::cast_slice;
 use uuid::Uuid;
+
+use crate::GizmoCamera;
 
 const GIZMO_SHADER_HANDLE: Handle<Shader> = uuid_handle!("e44be110-cb2b-4a8d-9c0c-965424e6a633");
 
@@ -54,6 +56,7 @@ impl Plugin for TransformGizmoRenderPlugin {
 
         render_app
             .add_render_command::<Transparent3d, DrawGizmo>()
+            .init_resource::<GizmoViews>()
             .init_resource::<SpecializedRenderPipelines<TransformGizmoPipeline>>()
             .add_systems(
                 RenderStartup,
@@ -114,7 +117,21 @@ impl From<&GizmoDrawDataHandle> for AssetId<GizmoDrawData> {
     }
 }
 
-fn extract_gizmo_data(mut commands: Commands, handles: Extract<Res<DrawDataHandles>>) {
+/// Main world entities of the [`GizmoCamera`]s. The gizmo is laid out in that camera's viewport,
+/// so drawing it into any other view (a render-to-texture mirror, say) puts it in the wrong place.
+/// Render layers can't tell views apart here, a mirror camera usually shares the layer on purpose.
+#[derive(Resource, Default)]
+struct GizmoViews(HashSet<Entity>);
+
+fn extract_gizmo_data(
+    mut commands: Commands,
+    handles: Extract<Res<DrawDataHandles>>,
+    cameras: Extract<Query<Entity, With<GizmoCamera>>>,
+    mut gizmo_views: ResMut<GizmoViews>,
+) {
+    gizmo_views.0.clear();
+    gizmo_views.0.extend(cameras.iter());
+
     let handle_refs = handles.handles.values().cloned().collect::<HashSet<_>>();
 
     for handle in handle_refs {
@@ -325,11 +342,16 @@ fn queue_transform_gizmos(
     view_key_cache: Res<ViewKeyCache>,
     transform_gizmos: Query<(Entity, &GizmoDrawDataHandle)>,
     transform_gizmo_assets: Res<RenderAssets<GizmoBuffers>>,
-    views: Query<(Entity, &ExtractedView, Option<&RenderLayers>)>,
+    views: Query<(Entity, &ExtractedView, &MainEntity, Option<&RenderLayers>)>,
+    gizmo_views: Res<GizmoViews>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawGizmo>().unwrap();
-    for (view_entity, view, _render_layers) in &views {
+    for (view_entity, view, main_entity, _render_layers) in &views {
+        if !gizmo_views.0.contains(&main_entity.id()) {
+            continue;
+        }
+
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
