@@ -20,7 +20,9 @@
 
 mod shape;
 mod subgizmo;
+mod tessellate;
 
+pub mod color;
 pub mod config;
 pub mod gizmo;
 pub mod math;

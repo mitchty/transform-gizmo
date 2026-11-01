@@ -1,12 +1,11 @@
 use std::ops::{Deref, DerefMut};
 
-pub use ecolor::Color32;
+pub use crate::color::Color32;
 
-use emath::Rect;
 use enumset::{EnumSet, EnumSetType, enum_set};
 
 use crate::math::{
-    DMat4, DQuat, DVec3, DVec4, Transform, Vec4Swizzles, screen_to_world, world_to_screen,
+    DMat4, DQuat, DVec3, DVec4, Rect, Transform, Vec4Swizzles, screen_to_world, world_to_screen,
 };
 
 /// The default snapping distance for rotation in radians

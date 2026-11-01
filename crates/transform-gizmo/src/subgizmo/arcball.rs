@@ -1,8 +1,8 @@
+use crate::color::Color32;
 use crate::math::{DQuat, Pos2, screen_to_world};
 use crate::subgizmo::common::{draw_circle, pick_circle};
 use crate::subgizmo::{SubGizmoConfig, SubGizmoKind};
 use crate::{GizmoDrawData, GizmoResult, config::PreparedGizmoConfig, gizmo::Ray};
-use ecolor::Color32;
 
 use super::common::PickResult;
 
@@ -49,7 +49,7 @@ impl SubGizmoKind for Arcball {
     fn update(subgizmo: &mut ArcballSubGizmo, ray: Ray) -> Option<GizmoResult> {
         let dir = ray.screen_pos - subgizmo.state.last_pos;
 
-        let rotation_delta = if dir.length_sq() > f32::EPSILON {
+        let rotation_delta = if dir.length_squared() > f32::EPSILON {
             let mat = subgizmo.config.view_projection.inverse();
             let a = screen_to_world(subgizmo.config.viewport, mat, ray.screen_pos, 0.0);
             let b = screen_to_world(subgizmo.config.viewport, mat, subgizmo.state.last_pos, 0.0);

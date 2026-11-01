@@ -1,5 +1,83 @@
-pub use emath::{Pos2, Rect, Vec2};
-pub use glam::{DMat3, DMat4, DQuat, DVec2, DVec3, DVec4, Mat4, Quat, Vec3, Vec4Swizzles};
+pub use glam::{DMat3, DMat4, DQuat, DVec2, DVec3, DVec4, Mat4, Quat, Vec2, Vec3, Vec4Swizzles};
+
+/// A position in viewport space.
+pub type Pos2 = Vec2;
+
+/// An axis aligned rectangle in viewport space.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Rect {
+    /// Top left corner.
+    pub min: Pos2,
+    /// Bottom right corner.
+    pub max: Pos2,
+}
+
+impl Rect {
+    /// An inverted, infinite rectangle that contains nothing and is not finite.
+    pub const NOTHING: Self = Self {
+        min: Vec2::INFINITY,
+        max: Vec2::NEG_INFINITY,
+    };
+
+    /// Rectangle spanning the two corners.
+    #[must_use]
+    pub const fn from_min_max(min: Pos2, max: Pos2) -> Self {
+        Self { min, max }
+    }
+
+    /// Distance between the left and right edges.
+    #[must_use]
+    pub fn width(&self) -> f32 {
+        self.max.x - self.min.x
+    }
+
+    /// Distance between the top and bottom edges.
+    #[must_use]
+    pub fn height(&self) -> f32 {
+        self.max.y - self.min.y
+    }
+
+    /// Width and height.
+    #[must_use]
+    pub fn size(&self) -> Vec2 {
+        self.max - self.min
+    }
+
+    /// X of the left edge.
+    #[must_use]
+    pub const fn left(&self) -> f32 {
+        self.min.x
+    }
+
+    /// Y of the top edge.
+    #[must_use]
+    pub const fn top(&self) -> f32 {
+        self.min.y
+    }
+
+    /// Middle of the rectangle.
+    #[must_use]
+    pub fn center(&self) -> Pos2 {
+        (self.min + self.max) * 0.5
+    }
+
+    /// True if both corners have finite coordinates.
+    #[must_use]
+    pub fn is_finite(&self) -> bool {
+        self.min.is_finite() && self.max.is_finite()
+    }
+
+    /// True if the point is inside, edges included.
+    #[must_use]
+    pub fn contains(&self, pos: Pos2) -> bool {
+        self.min.x <= pos.x && pos.x <= self.max.x && self.min.y <= pos.y && pos.y <= self.max.y
+    }
+}
+
+/// Rotates 90 degrees clockwise.
+pub(crate) fn rot90(v: Vec2) -> Vec2 {
+    Vec2::new(v.y, -v.x)
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct Transform {

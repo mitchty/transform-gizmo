@@ -1,17 +1,34 @@
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
-use ecolor::Color32;
-
 use crate::math::{
-    DMat3, DMat4, DQuat, DVec2, DVec3, Pos2, ray_to_plane_origin, rotation_align,
-    round_to_interval, world_to_screen,
+    ray_to_plane_origin, rotation_align, round_to_interval, world_to_screen, DMat3, DMat4, DQuat,
+    DVec2, DVec3, Pos2,
 };
 use crate::shape::ShapeBuilder;
 use crate::subgizmo::common::{gizmo_color, gizmo_local_normal, gizmo_normal, outer_circle_radius};
 use crate::subgizmo::{SubGizmoConfig, SubGizmoKind};
-use crate::{GizmoDirection, GizmoDrawData, GizmoResult, gizmo::Ray};
+use crate::{gizmo::Ray, GizmoDirection, GizmoDrawData, GizmoResult};
 
 use super::Picked;
+
+/// Full turns still change the fill. But more than that adds nothing a user can
+/// read aka 720 degrees should look the same as 360, and the fill ends up solid and hides
+/// the wedge output
+const MAX_FILL_TURNS: u32 = 2;
+
+/// Extra opacity per turn, and what swept wedge renders as over the rest of the disc.
+const FILL_STEP: f32 = 0.25;
+
+/// Opacity of the disc outside the swept wedge after number of turns.
+fn fill_opacity(turns: u32) -> f32 {
+    FILL_STEP * turns.min(MAX_FILL_TURNS) as f32
+}
+
+/// Opacity of the swept wedge, one step above the rest of the disc
+/// and should normally never be fully opaque.
+fn wedge_opacity(turns: u32) -> f32 {
+    fill_opacity(turns) + FILL_STEP
+}
 
 pub(crate) type RotationSubGizmo = SubGizmoConfig<Rotation>;
 
@@ -211,8 +228,7 @@ impl SubGizmoKind for Rotation {
                         radius,
                         start_angle_2,
                         end_angle_2,
-                        color.linear_multiply((0.25 * full_circles as f32).min(1.0)),
-                        (0.0, Color32::TRANSPARENT),
+                        color.linear_multiply(fill_opacity(full_circles)),
                     )
                     .into();
             }
@@ -222,8 +238,7 @@ impl SubGizmoKind for Rotation {
                     radius,
                     start_angle,
                     end_angle,
-                    color.linear_multiply((0.25 * (full_circles + 1) as f32).min(1.0)),
-                    (0.0, Color32::TRANSPARENT),
+                    color.linear_multiply(wedge_opacity(full_circles)),
                 )
                 .into();
 
@@ -349,5 +364,25 @@ fn arc_radius(subgizmo: &SubGizmoConfig<Rotation>) -> f64 {
         outer_circle_radius(&subgizmo.config)
     } else {
         (subgizmo.config.scale_factor * subgizmo.config.visuals.gizmo_size) as f64
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fill_never_becomes_opaque() {
+        for turns in [0, 1, 2, 3, 10, u32::MAX - 1] {
+            assert!(wedge_opacity(turns) < 1.0, "turns {turns}");
+            assert!(fill_opacity(turns) < wedge_opacity(turns), "turns {turns}");
+        }
+    }
+
+    #[test]
+    fn extra_turns_look_like_the_cap() {
+        assert!(fill_opacity(1) < fill_opacity(2));
+        assert_eq!(fill_opacity(2), fill_opacity(3));
+        assert_eq!(wedge_opacity(2), wedge_opacity(50));
     }
 }

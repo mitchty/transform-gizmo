@@ -14,9 +14,6 @@ readme = "../../README.md"
 include = ["../../LICENSE-APACHE", "../../LICENSE-MIT", "**/*.rs", "Cargo.toml"]
 
 [dependencies]
-emath.workspace = true
-epaint.workspace = true
-ecolor.workspace = true
 glam.workspace = true
 mint.workspace = true
 enum_dispatch.workspace = true

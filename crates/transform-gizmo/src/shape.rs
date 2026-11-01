@@ -1,19 +1,32 @@
 use std::f64::consts::TAU;
 
-use crate::math::{Pos2, Rect};
-use ecolor::Color32;
-use epaint::{Mesh, PathStroke, TessellationOptions, Tessellator, TextureId};
-pub(crate) use epaint::{Shape, Stroke};
+use crate::color::Color32;
+use crate::math::{Pos2, Rect, rot90};
+use crate::tessellate::Mesh;
 use glam::{DMat4, DVec3};
 
 use crate::math::world_to_screen;
 
 const STEPS_PER_RAD: f64 = 20.0;
 
+/// Width and color of a stroked line.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Stroke {
+    pub(crate) width: f32,
+    pub(crate) color: Color32,
+}
+
+impl From<(f32, Color32)> for Stroke {
+    fn from((width, color): (f32, Color32)) -> Self {
+        Self { width, color }
+    }
+}
+
 pub(crate) struct ShapeBuilder {
     mvp: DMat4,
     viewport: Rect,
-    pixels_per_point: f32,
+    /// Width of the anti-aliasing fringe, one physical pixel in viewport units.
+    feathering: f32,
 }
 
 impl ShapeBuilder {
@@ -21,25 +34,19 @@ impl ShapeBuilder {
         Self {
             mvp,
             viewport,
-            pixels_per_point,
+            feathering: 1.0 / pixels_per_point.max(1e-3),
         }
     }
 
-    fn tessellate_shape(&self, shape: Shape) -> Mesh {
-        let mut tessellator = Tessellator::new(
-            self.pixels_per_point,
-            TessellationOptions {
-                feathering: true,
-                ..Default::default()
-            },
-            Default::default(),
-            Default::default(),
-        );
-
+    fn stroke_path(&self, points: &[Pos2], closed: bool, stroke: Stroke) -> Mesh {
         let mut mesh = Mesh::default();
-        tessellator.tessellate_shape(shape, &mut mesh);
+        mesh.stroke_path(points, closed, stroke.width, stroke.color, self.feathering);
+        mesh
+    }
 
-        mesh.texture_id = TextureId::default();
+    fn fill(&self, points: &[Pos2], color: Color32) -> Mesh {
+        let mut mesh = Mesh::default();
+        mesh.fill_convex(points, color, self.feathering);
         mesh
     }
 
@@ -79,45 +86,33 @@ impl ShapeBuilder {
             .filter(|(first, last)| first.distance(**last) < 1e-2)
             .is_some();
 
-        self.tessellate_shape(if closed {
+        if closed {
             points.pop();
-            Shape::closed_line(points, stroke.into())
-        } else {
-            Shape::line(points, stroke.into())
-        })
+        }
+
+        self.stroke_path(&points, closed, stroke.into())
     }
 
     pub(crate) fn circle(&self, radius: f64, stroke: impl Into<Stroke>) -> Mesh {
         self.arc(radius, 0.0, TAU, stroke)
     }
 
-    pub(crate) fn filled_circle(
-        &self,
-        radius: f64,
-        color: Color32,
-        stroke: impl Into<PathStroke>,
-    ) -> Mesh {
+    pub(crate) fn filled_circle(&self, radius: f64, color: Color32) -> Mesh {
         let mut points = self.arc_points(radius, 0.0, TAU);
         points.pop();
 
-        self.tessellate_shape(Shape::convex_polygon(points, color, stroke.into()))
+        self.fill(&points, color)
     }
 
     pub(crate) fn line_segment(&self, from: DVec3, to: DVec3, stroke: impl Into<Stroke>) -> Mesh {
-        let mut points: [Pos2; 2] = Default::default();
+        let (Some(from), Some(to)) = (
+            world_to_screen(self.viewport, self.mvp, from),
+            world_to_screen(self.viewport, self.mvp, to),
+        ) else {
+            return Mesh::default();
+        };
 
-        for (i, point) in points.iter_mut().enumerate() {
-            if let Some(pos) = world_to_screen(self.viewport, self.mvp, [from, to][i]) {
-                *point = pos;
-            } else {
-                return Mesh::default();
-            }
-        }
-
-        self.tessellate_shape(Shape::LineSegment {
-            points,
-            stroke: stroke.into(),
-        })
+        self.stroke_path(&[from, to], false, stroke.into())
     }
 
     pub(crate) fn arrow(&self, from: DVec3, to: DVec3, stroke: impl Into<Stroke>) -> Mesh {
@@ -125,48 +120,31 @@ impl ShapeBuilder {
         let arrow_start = world_to_screen(self.viewport, self.mvp, from);
         let arrow_end = world_to_screen(self.viewport, self.mvp, to);
 
-        self.tessellate_shape(if let Some((start, end)) = arrow_start.zip(arrow_end) {
-            let cross = (end - start).normalized().rot90() * stroke.width / 2.0;
+        let Some((start, end)) = arrow_start.zip(arrow_end) else {
+            return Mesh::default();
+        };
 
-            Shape::convex_polygon(
-                vec![start - cross, start + cross, end],
-                stroke.color,
-                Stroke::NONE,
-            )
-        } else {
-            Shape::Noop
-        })
+        let cross = rot90((end - start).normalize_or_zero()) * stroke.width / 2.0;
+
+        self.fill(&[start - cross, start + cross, end], stroke.color)
     }
 
-    pub(crate) fn polygon(
-        &self,
-        points: &[DVec3],
-        fill: impl Into<Color32>,
-        stroke: impl Into<PathStroke>,
-    ) -> Mesh {
+    pub(crate) fn polygon(&self, points: &[DVec3], fill: Color32) -> Mesh {
         let points = points
             .iter()
             .filter_map(|pos| world_to_screen(self.viewport, self.mvp, *pos))
             .collect::<Vec<_>>();
 
-        self.tessellate_shape(if points.len() > 2 {
-            Shape::convex_polygon(points, fill, stroke)
-        } else {
-            Shape::Noop
-        })
+        self.fill(&points, fill)
     }
 
-    pub(crate) fn polyline(&self, points: &[DVec3], stroke: impl Into<PathStroke>) -> Mesh {
+    pub(crate) fn polyline(&self, points: &[DVec3], stroke: impl Into<Stroke>) -> Mesh {
         let points = points
             .iter()
             .filter_map(|pos| world_to_screen(self.viewport, self.mvp, *pos))
             .collect::<Vec<_>>();
 
-        self.tessellate_shape(if points.len() > 1 {
-            Shape::line(points, stroke)
-        } else {
-            Shape::Noop
-        })
+        self.stroke_path(&points, false, stroke.into())
     }
 
     pub(crate) fn sector(
@@ -174,8 +152,7 @@ impl ShapeBuilder {
         radius: f64,
         start_angle: f64,
         end_angle: f64,
-        fill: impl Into<Color32>,
-        stroke: impl Into<PathStroke>,
+        fill: Color32,
     ) -> Mesh {
         let angle_delta = end_angle - start_angle;
         let step_count = steps(angle_delta.abs());
@@ -189,7 +166,7 @@ impl ShapeBuilder {
         let step_size = angle_delta / (step_count - 1) as f64;
 
         if ((start_angle - end_angle).abs() - TAU).abs() < step_size.abs() {
-            return self.filled_circle(radius, fill.into(), stroke);
+            return self.filled_circle(radius, fill);
         }
 
         points.push(DVec3::new(0.0, 0.0, 0.0));
@@ -215,7 +192,7 @@ impl ShapeBuilder {
             .filter_map(|point| self.vec3_to_pos2(point))
             .collect::<Vec<_>>();
 
-        self.tessellate_shape(Shape::convex_polygon(points, fill, stroke))
+        self.fill(&points, fill)
     }
 
     fn vec3_to_pos2(&self, vec: DVec3) -> Option<Pos2> {

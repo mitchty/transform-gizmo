@@ -1,5 +1,3 @@
-use ecolor::Rgba;
-use emath::Pos2;
 use enumset::EnumSet;
 use std::ops::{Add, AddAssign, Sub};
 
@@ -7,8 +5,8 @@ use crate::GizmoOrientation;
 use crate::config::{
     GizmoConfig, GizmoDirection, GizmoMode, PreparedGizmoConfig, TransformPivotPoint,
 };
-use crate::math::{Transform, screen_to_world};
-use epaint::Mesh;
+use crate::math::{Pos2, Transform, screen_to_world};
+use crate::tessellate::Mesh;
 use glam::{DMat4, DQuat, DVec3};
 
 use crate::subgizmo::rotation::RotationParams;
@@ -711,7 +709,7 @@ impl From<Mesh> for GizmoDrawData {
             .map(|vertex| {
                 (
                     [vertex.pos.x, vertex.pos.y],
-                    Rgba::from(vertex.color).to_array(),
+                    vertex.color.to_linear_premultiplied(),
                 )
             })
             .unzip();

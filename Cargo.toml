@@ -15,9 +15,6 @@ authors = ["Urho Laukkarinen <urho.laukkarinen@gmail.com>"]
 transform-gizmo = { version = "0.11.0", path = "crates/transform-gizmo" }
 transform-gizmo-bevy = { version = "0.11.0", path = "crates/transform-gizmo-bevy" }
 
-emath = "0.36"
-epaint = "0.36"
-ecolor = "0.36"
 glam = { version = "0.33", features = ["mint"] }
 mint = "0.5"
 enum_dispatch = "0.3"

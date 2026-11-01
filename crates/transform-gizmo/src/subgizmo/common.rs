@@ -1,6 +1,6 @@
 use crate::GizmoMode;
+use crate::color::Color32;
 use crate::math::{ray_to_plane_origin, segment_to_segment};
-use ecolor::Color32;
 use enumset::EnumSet;
 use std::ops::{Add, RangeInclusive};
 
@@ -275,7 +275,6 @@ pub(crate) fn draw_plane(
                     origin - b + a,
                 ],
                 color,
-                (0.0, Color32::TRANSPARENT),
             )
             .into(),
     );
@@ -310,11 +309,7 @@ pub(crate) fn draw_circle(
 
     let mut draw_data = GizmoDrawData::default();
     if filled {
-        draw_data = draw_data.add(
-            shape_builder
-                .filled_circle(radius, color, (0.0, Color32::TRANSPARENT))
-                .into(),
-        );
+        draw_data = draw_data.add(shape_builder.filled_circle(radius, color).into());
     } else {
         draw_data = draw_data.add(
             shape_builder
